@@ -1,6 +1,6 @@
 import numpy as np
 
-def He_Keiming_Init(shape):
+def he_init(shape):
     # For ReLu nets W ~ N(0, sqrt(2/n))
     # weight_shape:
     #   For conv: (num_filters_out, num_channels_in, kernel_height, kernel_width)
@@ -89,8 +89,7 @@ def grad_check(layer_forward, layer_backward, x, eps = 1e-3, atol = 1e-2, rtol =
     # out is output of the layer
     #dout is derivative of loss wrt out, we initialise it with a random variable for testing purposes
     #cache are important variables from layer_forward which back propagation needs.
- 
-
+    
     np.random.seed(0)
     out, cache = layer_forward(x)
     dout = np.random.randn(*out.shape).astype(np.float32)
