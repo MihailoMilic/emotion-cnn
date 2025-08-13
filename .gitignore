@@ -1,0 +1,28 @@
+# OS-specific clutter
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Data files
+data/
+!data/.gitkeep   # keep empty data folder tracked
+
+# Large binary files
+*.npz
+*.npy
+*.jpg
+*.png
+
+# Logs and outputs
+logs/
+*.log
