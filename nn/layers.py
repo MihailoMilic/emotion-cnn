@@ -87,7 +87,145 @@ class Conv2D:
         return dx.astype(np.float32)
 
 
+class ReLU:
+    # Element-wise ReLU transformation
+    # forward: out = max(0, x)
+    # backward: dx = dout * (x>0)
+    def __init__(self):
+        self.mask = None
+    def forward(self, x):
+        self.mask = (x > 0) # (x > 0) is an array of same shape as x. mask_i = 1 if x_i > 0 else 0. 
+        return x * self.mask # in numpy * multiplies arrays element wise. Result is new x, where all negative terms are turned into a zero. 
+
+    def backward(self, dout):
+        return dout * self.mask # result is that we only care about gradients which came from non-zero entries of x 
+
+class MaxPool2D:
+    # 2D pooling (channel first)
+    #pool: (pool_h, pool_w)
+    # stride: step between pooling windows
+    #Stores argmax positions to route gradients back, meaning we only care about gradients in argmax positions
+    def __init__(self, pool_w =2, pool_h = 2, stride = 2):
+        self.pool_w = int(pool_w)
+        self.pool_h =int( pool_h)
+        self.stride = int(stride)
+
+        self._x_shape = None
+        #argmax indices
+        self._max_y = None 
+        self._max_x = None
+
+    def forward(self, x):
+        N, C, H, W = x.shape
+        ph, pw, s = self.pool_h, self.pool_w, self.stride
+        H_out = (H-ph) // s +1 # very similar patch-dimension-computation to the one we did for im2col
+        W_out = (W- pw) //s +1
+
+        out = np.zeros((N, C, H, W), dtype=x.dtype)
+        
+        self._max_y = np.zeros((N, C, H_out, W_out), dtype = np.int32)
+        self._max_x = np.zeros((N,C,H,W), dtype= np.int32)
+
+        for i in range(H_out):
+            hs = i *self.stride
+            for j in range(W_out):
+                ws = j + self.stride
+                window = x[: , : , hs:hs+ph, ws:ws+pw] # (N, C, ph, pw)
+                flat = window.reshape(N, C, -1) # (N, C, ph*pw)
+                arg = flat.argmax(axis =2) # (N, C)  finds the index of the largest in each array of window's pixels, there is N*C of these indices
+                # [[ 0.2, 0.5, 0.1, 0.3]]    argmax   [[1]]
+                # [[ 0.8, 0.4, 0.6, 0.7]]      ⟹     [[0]]
+                # [[ 0.1, 0.2, 0.9, 0.4]]             [[2]]                                              numpy broadcasting turns all arrays into the same shape if they have one axis of same dimension like (N,1) (1,C)
+                out[: , :, i, j ] = flat[np.arange(N)[:, None], np.arange(C)[None, :], arg] # (N, 1), (1, C), (N, C) => (N,C) (N,C) (N,C)
+                #out is of shape N, C, H_out, W_out, meaning that every [:,:, i,j] entry corresponds to a single pooling window of x. What the loop does is finds the window for Ɐ n, c in N, C, finds the biggest entry for Ɐ n, c in N, C, and then places them in out[:, :, i, j], meaning that we simply record the previous result. On top of that due to the nature of our "record" we are able to iteratively go over all i and j and record them all in one big tensor. that is everything that happens here
+                # N = 2, C = 1
+                #args  = [[1],[3]]
+                #np.arange(2)[:, None] = [[0], [1]] (2,1)
+                #np.arange(1)[:, None] = [[0]] (1,1)    
+                # broadcast 
+                #    ↓
+                # [[0],[1]] and [[0], [0]], and [[1], [3]] so if we index over all of them we get, (0,0,1) and (1,0,3), effectively indexing over together.
+                # so in our example we do what we do in flat so that we index over range of N and C together and over each arg which corresponds to these n and c in N, C.
+                # so at the end flat[np.arange(N)[:, None], np.arange(C)[None, :], arg] is an array (N,C) where at each entry is the largest entry in flat[n, c, :]
+                
+                y_idx = arg // pw  # find the height index by floor-dividing the index in the argument with number of rows
+                x_idx = arg % pw  # find the row index by finding the remainder
+                # (y_idx, x_idx) are coordinates with respect to the pooling window
+                # to find the coordinates in the original input tesnor we add to them hs and ws
+                self._max_y[:, :, i, j] = hs + y_idx 
+                self._max_x[:, :, i, j] = ws + x_idx
+
+        self._x_shape = x.shape
+        return out
+
+    def backward(self, dout):
+        
+        # dout: (N, C, H_out, W_out) -> dx: (N, C, H, W)
+    
+        N, C, H, W = self._x_shape
+        dx = np.zeros((N, C, H, W), dtype=dout.dtype)
+        H_out, W_out = dout.shape[2], dout.shape[3]
+
+        #scatter add
+        for i in range(H_out):
+            for j in range(W_out):
+                ys = self._max_y[:, :, i, j]   # (N, C)
+                xs = self._max_x[:, :, i, j]   # (N, C)
+                # place dout[n,c,i,j] at (ys[n,c], xs[n,c])
+                for n in range(N):
+                    # on LHS for specific picture, get all channels. dx[scalar, (C,), (C,), (C,)] shape so numpy iterates over all of them at the same time. which in this case results in 
+                    dx[n, np.arange(C), ys[n], xs[n]] += dout[n, :, i, j]
+        return dx
 
 
+class Flatten:
+    """
+    Flattens (N, C, H, W) -> (N, D). Stores original shape to unflatten in backward.
+    """
+    def __init__(self):
+        self._orig = None
+
+    def forward(self, x):
+        self._orig = x.shape
+        return x.reshape(x.shape[0], -1)
+
+    def backward(self, dout):
+        return dout.reshape(self._orig)
 
 
+class Linear:
+
+    def __init__(self, in_features, out_features, bias=True, weight_scale=None):
+        if weight_scale is None:
+            self.W = he_init((in_features, out_features))  # He init suits ReLU downstream
+        else:
+            self.W = (np.random.randn(in_features, out_features).astype(np.float32) *
+                      float(weight_scale))
+        self.b = np.zeros((out_features,), dtype=np.float32) if bias else None
+        # grads
+        self.dW = np.zeros_like(self.W)
+        self.db = np.zeros_like(self.b) if bias else None
+        # cache
+        self._x = None
+
+    def forward(self, x):
+        """
+        x: (N, D) -> out: (N, out_features)
+        """
+        self._x = x
+        out = x @ self.W
+        if self.b is not None:
+            out = out + self.b
+        return out
+
+    def backward(self, dout):
+        """
+        dout: (N, out_features)
+        returns: dx (N, D)
+        also fills self.dW, self.db
+        """
+        self.dW = (self._x.T @ dout).astype(np.float32)
+        if self.b is not None:
+            self.db = dout.sum(axis=0).astype(np.float32)
+        dx = (dout @ self.W.T).astype(np.float32)
+        return dx

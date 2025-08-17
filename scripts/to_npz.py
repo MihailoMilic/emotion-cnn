@@ -18,7 +18,6 @@ def pack_split(in_root, out_path):
     for i, emotion in enumerate(EMOTIONS):
         emotion_dir = os.path.join(in_root, emotion)
         if not os.path.isdir(emotion_dir):
-        # Skip missing classes (or raise if you want strictness)
             continue    
         for filename in os.listdir(emotion_dir):
             if filename.lower().endswith((".jpg", "jpeg", "png")):

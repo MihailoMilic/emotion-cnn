@@ -79,3 +79,10 @@ Local to global: Start with fine pixel-level features, end with whole-image sema
 Non-linear expansion: ReLU after each conv lets the network build more complex features from simple ones.
 Dimensionality control: Pooling keeps computation in check and avoids overfitting by discarding minor details.
 Decision making: FC layers combine all learned features to make the final classification.
+
+
+Numpy Advanced Indexing:
+
+In Numpy we can pass arrays during slices. Through this, easily mutate original multidimensional tensors, and objects represented through it.
+
+Ex 1 from code:
