@@ -45,13 +45,13 @@ def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = Non
     for epoch in range(epochs):
         epoch_losses = []
         model.zero_grad()
-        running_loss, running_correct, seem = 0.0, 0.0,0
+        running_loss, running_correct, seen = 0.0, 0.0,0
         for Xb, yb in iterate_minibatches(X_train, y_train, batch_size, shuffle=True):
-            logits = model.forward()
+            logits = model.forward(Xb)
             loss, dlogits = loss_fn(logits, yb)
             epoch_losses.append(float(loss))
-            model.backward()
-            optimizer.step()
+            model.backward(dlogits)
+            optimizer.step(model)
             model.zero_grad()
 
             preds = np.argmax(logits, axis =1)

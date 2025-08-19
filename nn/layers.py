@@ -1,5 +1,5 @@
 import numpy as np
-from utils import col2im, im2col, he_init
+from .utils import col2im, im2col, he_init
 
 
 class Conv2D:
@@ -58,7 +58,7 @@ class Conv2D:
         #5. cache for backward
         self._cols = cols
         self._H_out = H_out
-        self._W_out = W_col
+        self._W_out = W_out
         self._W_col = W_col
 
         return out 
@@ -67,21 +67,24 @@ class Conv2D:
         # dout (N, C_out, H_out, W_out)
         # returns dx (N, C_in, H, W)
         #also fills self.dW self.db
-        N = self._x_shape[0] #(N, C, H, W)[0] = N
-        C_out, C_in, kH, kW = self.W.shape
 
+        N = self._x_shape[0] #(N, C, H, W)[0] = N
+        C_in, _, kH, kW = self.W.shape
+        _, C_out, H_out, W_out = dout.shape
+        
         # match forward out_cols layout (N*H_out*W_out, C_out)
-        dout_2d = dout.transpose(0, 3, 1,2).reshape(-1, C_out)
+        dout_2d = dout.transpose(0, 2,3,1).reshape(N*H_out*W_out, C_out)
 
         # find db: sum over all positions and batch
         if self.b is not None:
             self.db = dout_2d.sum(axis = 0).astype(np.float32)
         # find dW: dout_2d @ cols (x_2d)
-        dW_col = dout_2d @ self._cols #(N*H_out*W_out, C_out).T @ (N*H_out*W_out, C_in * kH + kW) = (C_out,C_in * kH + kW)
+        dW_col = dout_2d.T @ self._cols #(N*H_out*W_out, C_out).T @ (N*H_out*W_out, C_in * kH + kW) = (C_out,C_in * kH + kW)
         self.dW = dW_col.reshape(self.W.shape).astype(np.float32)
 
         # dx 
-        dcols = self._cols @ dW_col
+        dcols = dout_2d @ self._W_col # (N*H_out*W_out, C_out) @ (C_out, C_in * kH *kW) = (N*H_out*W_out, C_in * kH *kW))
+
         dx = col2im(dcols, x_shape = self._x_shape, kH=kH, kW= kW, stride= self.stride, pad= self.pad, H_out= self._H_out, W_out= self._W_out)
 
         return dx.astype(np.float32)
@@ -128,7 +131,7 @@ class MaxPool2D:
         H_out = (H-ph) // s +1 # very similar patch-dimension-computation to the one we did for im2col
         W_out = (W- pw) //s +1
 
-        out = np.zeros((N, C, H, W), dtype=x.dtype)
+        out = np.zeros((N, C, H_out, W_out), dtype=x.dtype)
         
         self._max_y = np.zeros((N, C, H_out, W_out), dtype = np.int32)
         self._max_x = np.zeros((N,C,H,W), dtype= np.int32)
@@ -210,8 +213,7 @@ class Linear:
         if weight_scale is None:
             self.W = he_init((in_features, out_features))  # He init suits ReLU downstream
         else:
-            self.W = (np.random.randn(in_features, out_features).astype(np.float32) *
-                      float(weight_scale))
+            self.W = (np.random.randn(in_features, out_features).astype(np.float32) * float(weight_scale))
         self.b = np.zeros((out_features,), dtype=np.float32) if bias else None
         # grads
         self.dW = np.zeros_like(self.W)
@@ -223,8 +225,9 @@ class Linear:
         """
         x: (N, D) -> out: (N, out_features)
         """
+
         self._x = x
-        out = x @ self.W
+        out =  x  @ self.W 
         if self.b is not None:
             out = out + self.b
         return out

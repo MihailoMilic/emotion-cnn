@@ -7,8 +7,8 @@ def read_image_as_tensor(path, size = (48,48)):
     img = Image.open(path).convert("L") #"L" only stores illuminescence, "P" mode means it is palletised.
     if img.size != size:
         img = img.resize(size, Image.Resampling.BILINEAR)
-        x = np.asarray(img, dtype = np.float32) / 255.0 #divide to normalize
-        return x[None, ...] # from (48, 48) to (1,48,48), this is because CNN will later expect (N - batch size, C - channels (1 for grayscale 3 for rgb), H height, W -width), later we will stack many (1, 48,48 ) to get the desired form.
+    x = np.asarray(img, dtype = np.float32) / 255.0 #divide to normalize
+    return x[None, ...] # from (48, 48) to (1,48,48), this is because CNN will later expect (N - batch size, C - channels (1 for grayscale 3 for rgb), H height, W -width), later we will stack many (1, 48,48 ) to get the desired form.
 
 
 

@@ -64,7 +64,7 @@ def im2col(x, kH, kW, stride = 1, pad = 0):
     return cols, H_out, W_out
 
 def col2im(cols, x_shape, kH, kW, stride= 1, pad = 0, H_out = None, W_out = None):
-
+#   cols : (C_out,C_in * kH + kW)
     N, C, H, W = x_shape
 
     if H_out is None:
@@ -79,7 +79,7 @@ def col2im(cols, x_shape, kH, kW, stride= 1, pad = 0, H_out = None, W_out = None
         for j in range(W_out):
             ws = j*stride
             patch = cols[col_idx:col_idx+N].reshape(N, C, kH, kW)
-            dx_p[: , : , hs:hs+kH,ws: ws: ws+kW]+= patch
+            dx_p[: , : , hs:hs+kH, ws: ws+kW]+= patch
             col_idx += N
     return dx_p[:, :, pad:pad+H, pad:pad+W]
 #unit test for back propagation
