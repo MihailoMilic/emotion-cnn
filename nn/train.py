@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 
 def iterate_minibatches(X, y, batch_size, shuffle = True):
@@ -25,17 +25,31 @@ def evaluate(model, loss_fn, X, y, batch_size = 256):
         total += Xb.shape[0]
     return total_loss/ total, total_correct / total
 
-
+def plot_epoch_losses(history_epoch_losses):
+    num_epochs = len(history_epoch_losses)
+    first, middle, last = 0, num_epochs //2 , num_epochs -1
+    for e in sorted({first, middle, last}):
+        y = np.asarray(history_epoch_losses[e], dtype=float)
+        x = np.arange(1, len(y)+1)
+        plt.plot(x,y, label = f'Epoch {e+1}')
+        plt.xlabel("Iteration (batch)")
+        plt.ylabel("Loss")
+        plt.title("Training Loss per Iteration")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
 def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = None, batch_size = 64, epochs = 10, print_every =1):
     N = X_train.shape[0]
-    for epoch in range(1, epochs+1):
+    history_epoch_losses = []
+    for epoch in range(epochs):
+        epoch_losses = []
         model.zero_grad()
         running_loss, running_correct, seem = 0.0, 0.0,0
         for Xb, yb in iterate_minibatches(X_train, y_train, batch_size, shuffle=True):
             logits = model.forward()
             loss, dlogits = loss_fn(logits, yb)
-
+            epoch_losses.append(float(loss))
             model.backward()
             optimizer.step()
             model.zero_grad()
@@ -47,7 +61,7 @@ def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = Non
         
         train_loss = running_loss / seen
         train_correct= running_correct / seen
-
+        history_epoch_losses.append(epoch_losses)
         if X_val is not None:
             val_loss, val_correct = evaluate(model, loss_fn, X_val, y_val)
             if epoch % print_every ==0:
@@ -55,3 +69,5 @@ def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = Non
         else:
              if epoch % print_every ==0:
                 print(f"Epoch {epoch: 02d} | loss {train_loss:.4f} | acc {train_correct: .4f} ")
+
+
