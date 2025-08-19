@@ -24,8 +24,11 @@ class Model:
     
     def params(self):
         #Collects all learnable params
-        params = []
+        pairs = []
         for layer in self.layers:
             if hasattr(layer, "params"):
-                params.extend(layer.params())
-        return params
+                pairs.extend(layer.params())
+        return pairs
+    def zero_grad(self):
+        for _, g in self.params():
+            g[...]  = 0.0

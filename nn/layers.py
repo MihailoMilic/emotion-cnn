@@ -85,7 +85,11 @@ class Conv2D:
         dx = col2im(dcols, x_shape = self._x_shape, kH=kH, kW= kW, stride= self.stride, pad= self.pad, H_out= self._H_out, W_out= self._W_out)
 
         return dx.astype(np.float32)
-
+    def params(self):
+        params = [(self.W, self.dW)]
+        if self.b is not None:
+            params.extend([(self.b, self.db)])
+        return params
 
 
 class ReLU:
@@ -100,6 +104,8 @@ class ReLU:
 
     def backward(self, dout):
         return dout * self.mask # result is that we only care about gradients which came from non-zero entries of x 
+    def params(self):
+        return []
 
 class MaxPool2D:
     # 2D pooling (channel first)
@@ -177,6 +183,8 @@ class MaxPool2D:
                     # on LHS for specific picture, get all channels. dx[scalar, (C,), (C,), (C,)] shape so numpy iterates over all of them at the same time. which in this case results in 
                     dx[n, np.arange(C), ys[n], xs[n]] += dout[n, :, i, j]
         return dx
+    def params(self):
+        return []
 
 
 class Flatten:
@@ -192,6 +200,8 @@ class Flatten:
 
     def backward(self, dout):
         return dout.reshape(self._orig)
+    def params(self):
+        return []
 
 
 class Linear:
@@ -230,3 +240,8 @@ class Linear:
             self.db = dout.sum(axis=0).astype(np.float32)
         dx = (dout @ self.W.T).astype(np.float32)
         return dx
+    def params(self):
+        params = [(self.W, self.dW)]
+        if self.b is not None:
+            params.extend([(self.b, self.db)])
+        return params
