@@ -69,5 +69,6 @@ def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = Non
         else:
              if epoch % print_every ==0:
                 print(f"Epoch {epoch: 02d} | loss {train_loss:.4f} | acc {train_correct: .4f} ")
+    plot_epoch_losses(history_epoch_losses)
 
 
