@@ -17,7 +17,7 @@ def evaluate(model, loss_fn, X, y, batch_size = 256):
     model.zero_grad()
     total_loss, total_correct, total = 0.0, 0.0, 0
     for Xb, yb in iterate_minibatches(X, y, batch_size, False):
-        logits = model.forward()
+        logits = model.forward(Xb)
         loss, dlogits = loss_fn(logits, yb)
         total_loss += loss * Xb.shape[0] # We multiply by the batch size because we are calculating the batch_size mean. Later we will divide by the total number of data examples to finish the mean function
         preds = np.argmax(logits, axis=1)
@@ -32,12 +32,12 @@ def plot_epoch_losses(history_epoch_losses):
         y = np.asarray(history_epoch_losses[e], dtype=float)
         x = np.arange(1, len(y)+1)
         plt.plot(x,y, label = f'Epoch {e+1}')
-        plt.xlabel("Iteration (batch)")
-        plt.ylabel("Loss")
-        plt.title("Training Loss per Iteration")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    plt.xlabel("Iteration (batch)")
+    plt.ylabel("Loss")
+    plt.title("Training Loss per Iteration")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = None, batch_size = 64, epochs = 10, print_every =1):
     N = X_train.shape[0]
