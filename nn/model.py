@@ -27,6 +27,7 @@ class Model:
                 print(f'{layer.__class__.__name__} : {dout.shape}')
         return dout
     
+
     def params(self):
         #Collects all learnable params
         pairs = []

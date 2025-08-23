@@ -1,5 +1,7 @@
 import numpy as np
-from .utils import col2im, im2col, he_init
+from .utils import he_init, im2col, col2im
+from numpy.lib.stride_tricks import sliding_window_view
+
 
 
 class Conv2D:
@@ -69,8 +71,8 @@ class Conv2D:
         #also fills self.dW self.db
 
         N = self._x_shape[0] #(N, C, H, W)[0] = N
-        C_in, _, kH, kW = self.W.shape
-        _, C_out, H_out, W_out = dout.shape
+        _, _, kH, kW = self.W.shape
+        C_in, C_out, H_out, W_out = dout.shape
         
         # match forward out_cols layout (N*H_out*W_out, C_out)
         dout_2d = dout.transpose(0, 2,3,1).reshape(N*H_out*W_out, C_out)
@@ -79,7 +81,7 @@ class Conv2D:
         if self.b is not None:
             self.db = dout_2d.sum(axis = 0).astype(np.float32)
         # find dW: dout_2d @ cols (x_2d)
-        dW_col = dout_2d.T @ self._cols #(N*H_out*W_out, C_out).T @ (N*H_out*W_out, C_in * kH + kW) = (C_out,C_in * kH + kW)
+        dW_col = dout_2d.T @ self._cols #(N*H_out*W_out, C_out).T @ (N*H_out*W_out, C_in * kH * kW) = (C_out,C_in * kH * kW)
         self.dW = dW_col.reshape(self.W.shape).astype(np.float32)
 
         # dx 
@@ -134,12 +136,12 @@ class MaxPool2D:
         out = np.zeros((N, C, H_out, W_out), dtype=x.dtype)
         
         self._max_y = np.zeros((N, C, H_out, W_out), dtype = np.int32)
-        self._max_x = np.zeros((N,C,H,W), dtype= np.int32)
+        self._max_x = np.zeros((N,C,H_out,W_out), dtype= np.int32)
 
         for i in range(H_out):
             hs = i *self.stride
             for j in range(W_out):
-                ws = j + self.stride
+                ws = j * self.stride
                 window = x[: , : , hs:hs+ph, ws:ws+pw] # (N, C, ph, pw)
                 flat = window.reshape(N, C, -1) # (N, C, ph*pw)
                 arg = flat.argmax(axis =2) # (N, C)  finds the index of the largest in each array of window's pixels, there is N*C of these indices

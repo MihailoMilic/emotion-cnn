@@ -1,19 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from nn.utils import cosine_lr
+
 
 def iterate_minibatches(X, y, batch_size, shuffle = True):
     N = X.shape[0]
     idx = np.arange(N)
     if shuffle:
         np.random.shuffle(idx)
-    for start in range(0, N - N % batch_size, batch_size):
+    for start in range(0, N - N % batch_size, batch_size+1):
         sl = idx[start: start+batch_size]
         yield X[sl], y[sl]
 
 
 # We are feeding 
-def evaluate(model, loss_fn, X, y, batch_size = 256):
+def evaluate(model, loss_fn, X, y, batch_size = 64):
     model.zero_grad()
     total_loss, total_correct, total = 0.0, 0.0, 0
     for Xb, yb in iterate_minibatches(X, y, batch_size, False):
@@ -51,6 +53,7 @@ def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = Non
             loss, dlogits = loss_fn(logits, yb)
             epoch_losses.append(float(loss))
             model.backward(dlogits)
+            optimizer.lr = cosine_lr(epoch,epochs, base_lr=0.05, min_lr=1e-4, warmup=5)
             optimizer.step(model)
             model.zero_grad()
 
@@ -63,7 +66,7 @@ def train(model, loss_fn, optimizer, X_train, y_train, X_val = None, y_val = Non
         train_correct= running_correct / seen
         history_epoch_losses.append(epoch_losses)
         if X_val is not None:
-            val_loss, val_correct = evaluate(model, loss_fn, X_val, y_val)
+            val_loss, val_correct = evaluate(model, loss_fn, X_val, y_val, batch_size)
             if epoch % print_every ==0:
                 print(f"Epoch {epoch: 02d} | loss {train_loss:.4f} | acc {train_correct: .4f} | \n val_loss {val_loss: .4f} | correct {val_correct: .4f} ")
         else:
